@@ -38,10 +38,7 @@ The release build has no config file: everything below is always on while the mo
 | `NoLobbyWin` | on | Don't count the lobby round (first kill in the menu lobby) as a win (vanilla: the survivor starts the match one win up). |
 | `JoinTimeout` | on | When joining a lobby, wait up to 30 s for the host to accept instead of 5 s (vanilla: often fails with the 'check firewall' error unless you pause while joining). |
 | `RemoteMovement` | on | Apply other online players' movement/jumps once per physics step instead of once per frame (vanilla: their wall jumps kick harder on your screen the higher your FPS). |
-| `FixedStepMovement` | on | Run walking (and the leg animation) on the 60 Hz physics step instead of per frame (vanilla: uneven above 60 FPS, sluggish below it). |
-| `FixedStepTurning` | on | Run body turning on the 60 Hz physics step instead of per frame. |
-| `FixedStepBalance` | on | Run leg balancing on the 60 Hz physics step instead of per frame. |
-| `FixedStepWeaponHold` | on | Run weapon holding and the hand pull while blocking/grabbing on the 60 Hz physics step instead of per frame (vanilla: wobbly at low FPS). |
+| `FixedStepPhysics` | on | Run turning, balance and weapon holding on the 60 Hz physics step instead of per frame, and walking too while below 60 FPS (vanilla: uneven above 60 FPS, wobbly and sluggish below it). |
 
 ## Competitive ruleset (locks)
 

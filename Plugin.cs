@@ -12,7 +12,7 @@ namespace CompetitiveMod
     {
         public const string Guid = "competitivemod.stickfight";
         public const string Name = "CompetitiveMod";
-        public const string Version = "0.26.0";
+        public const string Version = "0.27.0";
 
         internal static ManualLogSource Log;
 #if !LOCKED
@@ -43,10 +43,7 @@ namespace CompetitiveMod
         internal static ModSetting LockMaps;
         internal static ModSetting LockWeapons;
         internal static ModSetting FixRemoteMovement;
-        internal static ModSetting FixedStepMovement;
-        internal static ModSetting FixedStepTurning;
-        internal static ModSetting FixedStepBalance;
-        internal static ModSetting FixedStepWeaponHold;
+        internal static ModSetting FixFixedStepPhysics;
 
 #if LOCKED
         internal const bool Locked = true;
@@ -78,14 +75,20 @@ namespace CompetitiveMod
         internal static bool PickupLogEnabled => pickupLogEntry != null && pickupLogEntry.Value;
 #endif
 
+        // Every fix and lock by config key, for the /comp chat commands.
+        internal static readonly System.Collections.Generic.Dictionary<string, ModSetting> Settings =
+            new System.Collections.Generic.Dictionary<string, ModSetting>(System.StringComparer.OrdinalIgnoreCase);
+
         // A fix or lock: configurable normally, always at its default in the locked (public) build.
         private ModSetting Setting(string section, string key, bool defaultValue, string description)
         {
 #if LOCKED
-            return new ModSetting(defaultValue);
+            ModSetting setting = new ModSetting(key, defaultValue);
 #else
-            return new ModSetting(Config.Bind(section, key, defaultValue, description));
+            ModSetting setting = new ModSetting(key, Config.Bind(section, key, defaultValue, description));
 #endif
+            Settings[key] = setting;
+            return setting;
         }
 
         private void Awake()
@@ -138,14 +141,8 @@ namespace CompetitiveMod
                 "When joining a lobby, wait up to 30 s for the host to accept instead of 5 s (vanilla: often fails with the 'check firewall' error unless you pause while joining).");
             FixRemoteMovement = Setting("Fixes", "RemoteMovement", true,
                 "Apply other online players' movement/jumps once per physics step instead of once per frame (vanilla: their wall jumps kick harder on your screen the higher your FPS).");
-            FixedStepMovement = Setting("Fixes", "FixedStepMovement", true,
-                "Run walking (and the leg animation) on the 60 Hz physics step instead of per frame (vanilla: uneven above 60 FPS, sluggish below it).");
-            FixedStepTurning = Setting("Fixes", "FixedStepTurning", true,
-                "Run body turning on the 60 Hz physics step instead of per frame.");
-            FixedStepBalance = Setting("Fixes", "FixedStepBalance", true,
-                "Run leg balancing on the 60 Hz physics step instead of per frame.");
-            FixedStepWeaponHold = Setting("Fixes", "FixedStepWeaponHold", true,
-                "Run weapon holding and the hand pull while blocking/grabbing on the 60 Hz physics step instead of per frame (vanilla: wobbly at low FPS).");
+            FixFixedStepPhysics = Setting("Fixes", "FixedStepPhysics", true,
+                "Run turning, balance and weapon holding on the 60 Hz physics step instead of per frame, and walking too while below 60 FPS (vanilla: uneven above 60 FPS, wobbly and sluggish below it).");
 
             LockGameSettings = Setting("Lock", "GameSettings", true,
                 "Lock the game settings (HP, regen, weapon spawns, maps option, bots, ping display, win display) to the competitive ruleset. Auto pickup and chat are never locked.");
@@ -161,12 +158,13 @@ namespace CompetitiveMod
 
             SettingsLock.ApplyAll();
             new Harmony(Guid).PatchAll(typeof(Plugin).Assembly);
-            Log.LogInfo($"{Name} {Version} loaded ({(Locked ? "locked build, " : string.Empty)}Enabled={MasterEnabled}, PickupLog={PickupLogEnabled}, LockGameSettings={LockGameSettings.Value}, LockMaps={LockMaps.Value}, LockWeapons={LockWeapons.Value}, NetworkSendRate={FixNetworkSendRate.Value}, FullAutoFireRate={FixFullAutoFireRate.Value}, ThrowAim={FixThrowAim.Value}, ThrowWhiff={FixThrowWhiff.Value}, StunCarryOver={FixStunCarryOver.Value}, PoseCarryOver={FixPoseCarryOver.Value}, Draws={FixDraws.Value}, RoundStart={FixRoundStart.Value}, AllowAllMapsOnline={AllowAllMapsOnline.Value}, SyncedObjects={FixSyncedObjects.Value}, FallingBlocks={FixFallingBlocks.Value}, ShotSync={FixShotSync.Value}, SnakeSync={FixSnakeSync.Value}, Quickdraw={FixQuickdraw.Value}, ThrowBlock={FixThrowBlock.Value}, PlacedGuns={FixGroundWeapons.Value}, HostSidePickup={FixHostPickup.Value}, NoLobbyWin={FixLobbyWin.Value}, JoinTimeout={FixJoinTimeout.Value}, RemoteMovement={FixRemoteMovement.Value}, FixedStepMovement={FixedStepMovement.Value}, FixedStepTurning={FixedStepTurning.Value}, FixedStepBalance={FixedStepBalance.Value}, FixedStepWeaponHold={FixedStepWeaponHold.Value})");
+            Log.LogInfo($"{Name} {Version} loaded ({(Locked ? "locked build, " : string.Empty)}Enabled={MasterEnabled}, PickupLog={PickupLogEnabled}, LockGameSettings={LockGameSettings.Value}, LockMaps={LockMaps.Value}, LockWeapons={LockWeapons.Value}, NetworkSendRate={FixNetworkSendRate.Value}, FullAutoFireRate={FixFullAutoFireRate.Value}, ThrowAim={FixThrowAim.Value}, ThrowWhiff={FixThrowWhiff.Value}, StunCarryOver={FixStunCarryOver.Value}, PoseCarryOver={FixPoseCarryOver.Value}, Draws={FixDraws.Value}, RoundStart={FixRoundStart.Value}, AllowAllMapsOnline={AllowAllMapsOnline.Value}, SyncedObjects={FixSyncedObjects.Value}, FallingBlocks={FixFallingBlocks.Value}, ShotSync={FixShotSync.Value}, SnakeSync={FixSnakeSync.Value}, Quickdraw={FixQuickdraw.Value}, ThrowBlock={FixThrowBlock.Value}, PlacedGuns={FixGroundWeapons.Value}, HostSidePickup={FixHostPickup.Value}, NoLobbyWin={FixLobbyWin.Value}, JoinTimeout={FixJoinTimeout.Value}, RemoteMovement={FixRemoteMovement.Value}, FixedStepPhysics={FixFixedStepPhysics.Value})");
         }
 
         private void Update()
         {
             CompSwitch.Tick();
+            LowFrameRate.Tick();
             FallingRockSync.Poll();
             ShotSync.Poll();
             CompetitiveMod.PickupLog.LogNearby();
@@ -181,17 +179,35 @@ namespace CompetitiveMod
         private readonly ConfigEntry<bool> entry;
         private readonly bool fixedValue;
 
-        internal ModSetting(ConfigEntry<bool> entry)
+        internal ModSetting(string key, ConfigEntry<bool> entry)
         {
+            Key = key;
             this.entry = entry;
         }
 
-        internal ModSetting(bool fixedValue)
+        internal ModSetting(string key, bool fixedValue)
         {
+            Key = key;
             this.fixedValue = fixedValue;
         }
 
-        public bool Value => CompSwitch.Active && (entry != null ? entry.Value : fixedValue);
+        internal string Key { get; }
+
+        // Its own setting, regardless of the master switch.
+        internal bool Configured => entry != null ? entry.Value : fixedValue;
+
+        // Writes the config file; false in the locked build, which has none.
+        internal bool TrySet(bool on)
+        {
+            if (entry == null)
+            {
+                return false;
+            }
+            entry.Value = on;
+            return true;
+        }
+
+        public bool Value => CompSwitch.Active && Configured;
     }
 
     // Vanilla TickSyncPos resets the send timer to 0 after each send, discarding the overshoot,

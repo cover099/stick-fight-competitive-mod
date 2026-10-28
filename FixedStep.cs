@@ -58,19 +58,19 @@ namespace CompetitiveMod
             Driving = true;
             try
             {
-                if (Plugin.FixRemoteMovement.Value || Plugin.FixedStepMovement.Value)
+                if (Plugin.FixRemoteMovement.Value || LowFrameRate.MovementOnStep)
                 {
                     DriveMovement();
                 }
-                if (Plugin.FixedStepTurning.Value && rotation != null && rotation.enabled)
+                if (Plugin.FixFixedStepPhysics.Value && rotation != null && rotation.enabled)
                 {
                     RotationUpdate(rotation);
                 }
-                if (Plugin.FixedStepBalance.Value && balance != null && balance.enabled)
+                if (Plugin.FixFixedStepPhysics.Value && balance != null && balance.enabled)
                 {
                     BalanceUpdate(balance);
                 }
-                if (Plugin.FixedStepWeaponHold.Value && fighting != null && fighting.enabled)
+                if (Plugin.FixFixedStepPhysics.Value && fighting != null && fighting.enabled)
                 {
                     DriveWeaponHold();
                 }
@@ -96,7 +96,7 @@ namespace CompetitiveMod
                 }
                 return;
             }
-            if (!Plugin.FixedStepMovement.Value || controller.isAI || ChatManager.isTyping || controller.canFly || controller.PlayerActions == null)
+            if (!LowFrameRate.MovementOnStep || controller.isAI || ChatManager.isTyping || controller.canFly || controller.PlayerActions == null)
             {
                 return;
             }
@@ -137,6 +137,35 @@ namespace CompetitiveMod
             {
                 HoldWeaponPosition(fighting, WeaponBody(fighting), aim.position + aim.forward * 0.05f, fighting.weapon.positionForce);
                 HoldWeaponRotation(fighting, WeaponBody(fighting), aim.forward, fighting.weapon.rotationForce);
+            }
+        }
+    }
+
+    // Walking only needs moving onto the physics step below the physics rate (60 FPS): there vanilla
+    // bunches several frames of walking force into one step. At or above it vanilla movement is fine,
+    // and the fixed-step version gave slightly higher jumps when blocking/punching mid-jump, so only
+    // switch it on while the game actually runs slower than the physics step (with some hysteresis).
+    internal static class LowFrameRate
+    {
+        private const float EnterRatio = 1.08f; // frame time 8% longer than a physics step (~55 FPS)
+        private const float LeaveRatio = 1.0f;  // back to vanilla at the physics rate again
+
+        private static float averageFrameTime = 1f / 60f;
+        private static bool low;
+
+        internal static bool MovementOnStep => low && Plugin.FixFixedStepPhysics.Value;
+
+        internal static void Tick()
+        {
+            averageFrameTime = Mathf.Lerp(averageFrameTime, Time.unscaledDeltaTime, 0.05f);
+            float step = Time.fixedDeltaTime;
+            if (!low && averageFrameTime > step * EnterRatio)
+            {
+                low = true;
+            }
+            else if (low && averageFrameTime < step * LeaveRatio)
+            {
+                low = false;
             }
         }
     }
@@ -211,7 +240,7 @@ namespace CompetitiveMod
         // character limps instead of walking.
         private static void FrameLeft(Controller controller)
         {
-            if (!Plugin.FixedStepMovement.Value)
+            if (!LowFrameRate.MovementOnStep)
             {
                 controller.Left();
                 return;
@@ -222,7 +251,7 @@ namespace CompetitiveMod
 
         private static void FrameRight(Controller controller)
         {
-            if (!Plugin.FixedStepMovement.Value)
+            if (!LowFrameRate.MovementOnStep)
             {
                 controller.Right();
                 return;
@@ -244,22 +273,9 @@ namespace CompetitiveMod
         }
 
         // Only objects that have a driver are moved to the physics step; anything else keeps vanilla behaviour.
-        private static bool Prefix(Component __instance, MethodBase __originalMethod)
+        private static bool Prefix(Component __instance)
         {
-            return !Enabled(__originalMethod) || FixedStepDriver.Driving || __instance.GetComponent<FixedStepDriver>() == null;
-        }
-
-        private static bool Enabled(MethodBase method)
-        {
-            if (method.DeclaringType == typeof(Rotation))
-            {
-                return Plugin.FixedStepTurning.Value;
-            }
-            if (method.DeclaringType == typeof(Balance))
-            {
-                return Plugin.FixedStepBalance.Value;
-            }
-            return Plugin.FixedStepWeaponHold.Value;
+            return !Plugin.FixFixedStepPhysics.Value || FixedStepDriver.Driving || __instance.GetComponent<FixedStepDriver>() == null;
         }
     }
 }

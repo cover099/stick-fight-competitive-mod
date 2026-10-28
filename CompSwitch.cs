@@ -113,7 +113,12 @@ namespace CompetitiveMod
         }
     }
 
-    // /comp toggles, /comp on, /comp off. The reply shows as a speech bubble on your own screen only.
+    // Chat commands. The reply shows as a speech bubble on your own screen only.
+    //   /comp                     toggle the whole mod
+    //   /comp on | off            switch the whole mod on or off
+    //   /comp <setting> on | off  change one fix or lock in the config file, e.g. /comp FixedStepPhysics off
+    //   /comp <setting>           show one setting
+    //   /comp list                show which fixes and locks are off (the full list goes to the log)
     [HarmonyPatch(typeof(ChatManager), "SendChatMessage")]
     internal static class CompCommandPatch
     {
@@ -124,17 +129,57 @@ namespace CompetitiveMod
             {
                 return true;
             }
-            string[] parts = message.Trim().ToLower().Split(' ');
-            if (parts.Length == 0 || parts[0] != "/comp")
+            string[] parts = message.Trim().Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0 || parts[0].ToLower() != "/comp")
             {
                 return true;
             }
-            bool on = parts.Length > 1 && (parts[1] == "on" || parts[1] == "off") ? parts[1] == "on" : !CompSwitch.Active;
-            string reply = CompSwitch.Set(on);
+            string reply = Run(parts);
             Plugin.Log.LogInfo(reply);
             __instance.Talk(reply);
             message = string.Empty;
             return false;
+        }
+
+        private static string Run(string[] parts)
+        {
+            string arg = parts.Length > 1 ? parts[1].ToLower() : string.Empty;
+            if (arg == string.Empty || arg == "on" || arg == "off")
+            {
+                return CompSwitch.Set(arg == string.Empty ? !CompSwitch.Active : arg == "on");
+            }
+            if (arg == "list")
+            {
+                System.Collections.Generic.List<string> off = new System.Collections.Generic.List<string>();
+                foreach (ModSetting setting in Plugin.Settings.Values)
+                {
+                    Plugin.Log.LogInfo($"  {setting.Key} = {(setting.Configured ? "on" : "off")}");
+                    if (!setting.Configured)
+                    {
+                        off.Add(setting.Key);
+                    }
+                }
+                string state = "Comp mod " + (CompSwitch.Active ? "ON" : "OFF");
+                return off.Count == 0 ? state + ", all fixes on" : state + ", off: " + string.Join(", ", off.ToArray());
+            }
+            if (!Plugin.Settings.TryGetValue(parts[1], out ModSetting target))
+            {
+                return "Unknown setting '" + parts[1] + "' (/comp list shows them in the log)";
+            }
+            if (parts.Length < 3)
+            {
+                return target.Key + " is " + (target.Configured ? "on" : "off");
+            }
+            string value = parts[2].ToLower();
+            if (value != "on" && value != "off")
+            {
+                return "Use /comp " + target.Key + " on or off";
+            }
+            if (!target.TrySet(value == "on"))
+            {
+                return "Settings are locked in this build";
+            }
+            return target.Key + " " + value.ToUpper() + " (saved)";
         }
     }
 
