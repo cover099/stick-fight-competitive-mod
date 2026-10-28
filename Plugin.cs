@@ -12,7 +12,7 @@ namespace CompetitiveMod
     {
         public const string Guid = "competitivemod.stickfight";
         public const string Name = "CompetitiveMod";
-        public const string Version = "0.27.0";
+        public const string Version = "0.27.1";
 
         internal static ManualLogSource Log;
 #if !LOCKED
