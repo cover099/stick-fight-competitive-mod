@@ -12,10 +12,14 @@ namespace CompetitiveMod
     {
         public const string Guid = "competitivemod.stickfight";
         public const string Name = "CompetitiveMod";
-        public const string Version = "0.25.2";
+        public const string Version = "0.26.0";
 
         internal static ManualLogSource Log;
-        internal static ConfigEntry<bool> MasterEnabled;
+#if !LOCKED
+        private static ConfigEntry<bool> masterEntry;
+        private static ConfigEntry<bool> pickupLogEntry;
+#endif
+        private static bool masterValue;
         internal static ModSetting FixNetworkSendRate;
         internal static ModSetting FixFullAutoFireRate;
         internal static ModSetting FixThrowAim;
@@ -29,7 +33,6 @@ namespace CompetitiveMod
         internal static ModSetting FixFallingBlocks;
         internal static ModSetting FixShotSync;
         internal static ModSetting FixSnakeSync;
-        internal static ConfigEntry<bool> PickupLog;
         internal static ModSetting FixQuickdraw;
         internal static ModSetting FixThrowBlock;
         internal static ModSetting FixGroundWeapons;
@@ -45,73 +48,120 @@ namespace CompetitiveMod
         internal static ModSetting FixedStepBalance;
         internal static ModSetting FixedStepWeaponHold;
 
+#if LOCKED
+        internal const bool Locked = true;
+#else
+        internal const bool Locked = false;
+#endif
+        private const string MasterPref = "CompetitiveMod.Enabled";
+
+        // Master switch: in the config file normally; in game preferences in the locked (public)
+        // build, which has no config file.
+        internal static bool MasterEnabled
+        {
+            get => masterValue;
+            set
+            {
+                masterValue = value;
+#if LOCKED
+                PlayerPrefs.SetInt(MasterPref, value ? 1 : 0);
+                PlayerPrefs.Save();
+#else
+                masterEntry.Value = value;
+#endif
+            }
+        }
+
+#if LOCKED
+        internal static bool PickupLogEnabled => false;
+#else
+        internal static bool PickupLogEnabled => pickupLogEntry != null && pickupLogEntry.Value;
+#endif
+
+        // A fix or lock: configurable normally, always at its default in the locked (public) build.
+        private ModSetting Setting(string section, string key, bool defaultValue, string description)
+        {
+#if LOCKED
+            return new ModSetting(defaultValue);
+#else
+            return new ModSetting(Config.Bind(section, key, defaultValue, description));
+#endif
+        }
+
         private void Awake()
         {
             Log = Logger;
-            MasterEnabled = Config.Bind("General", "Enabled", false,
+#if LOCKED
+            masterValue = PlayerPrefs.GetInt(MasterPref, 0) == 1;
+#else
+            masterEntry = Config.Bind("General", "Enabled", false,
                 "Master switch for the whole mod (every fix and lock below). Also set by the COMP MOD lever on the first screen and the /comp chat command; online, the host's setting applies to everyone.");
-            FixNetworkSendRate = new ModSetting(Config.Bind("Fixes", "NetworkSendRate", true,
-                "Send your position updates at the intended 50/s regardless of FPS (vanilla: 30/s at 60 FPS, 48/s at 144-240 FPS)."));
-            FixFullAutoFireRate = new ModSetting(Config.Bind("Fixes", "FullAutoFireRate", true,
-                "Full-auto weapons fire at their real cooldown instead of being rounded up to the next frame (vanilla: slower at lower FPS)."));
-            FixThrowAim = new ModSetting(Config.Bind("Fixes", "ThrowAim", true,
-                "Throw weapons in the direction you are aiming this frame (vanilla can use last frame's aim; worse at lower FPS)."));
-            FixThrowWhiff = new ModSetting(Config.Bind("Fixes", "ThrowWhiff", true,
-                "Stop thrown weapons from counting as landed before they've launched (vanilla: above 60 FPS throws often lose their damage and get blocked by your own arm, dropping in front of you)."));
-            FixStunCarryOver = new ModSetting(Config.Bind("Fixes", "StunCarryOver", true,
-                "Clear the stun from punching into a block when the next map starts (vanilla: it carries over and you can't attack or block at the start of the round)."));
-            FixPoseCarryOver = new ModSetting(Config.Bind("Fixes", "PoseCarryOver", true,
-                "Start every map standing upright and at rest (vanilla: you keep your pose from the end of the last map, e.g. upside down or legs out, plus any leftover spin)."));
-            FixDraws = new ModSetting(Config.Bind("Fixes", "Draws", true,
-                "If the last player alive also dies before the next map, it's a draw: nobody gets the win (vanilla: they get 2 wins and the next map breaks)."));
-            FixRoundStart = new ModSetting(Config.Bind("Fixes", "RoundStart", true,
-                "Online, give control the moment the countdown ends (vanilla: ~2 frames later, so 60 FPS players start ~30 ms after 400 FPS players)."));
-            AllowAllMapsOnline = new ModSetting(Config.Bind("Fixes", "AllowAllMapsOnline", true,
-                "Let the host pick maps the game only allows offline (Desert 2, 7, 8, Factory 5, Winter 13) when they're on in the map list."));
-            FixSyncedObjects = new ModSetting(Config.Bind("Fixes", "SyncedObjects", true,
-                "For non-hosts, stop host-synced map objects (moving platforms, crates) from flying off and vanishing when two updates arrive close together (vanilla: the Factory 1/3/4 platform often disappears)."));
-            FixFallingBlocks = new ModSetting(Config.Bind("Fixes", "FallingBlocks", true,
-                "Online, when a crumbling block (Castle 6/7) falls on anyone's game, make it fall for everyone (vanilla: each game decides on its own, so the maps desync). Every player needs the mod."));
-            FixShotSync = new ModSetting(Config.Bind("Fixes", "ShotSync", true,
-                "Online, send every gun shot reliably so it always shows up on other players' screens, including a gun's last shot (vanilla: grenades and bullets often go missing for the other player but still hit). Both players need it on."));
-            FixSnakeSync = new ModSetting(Config.Bind("Fixes", "SnakeSync", true,
-                "Online, keep snakes chasing the same player in the same place on every screen (vanilla: a non-host's snakes never chase on their own screen, extra snakes get deleted for others, and snakes drift apart). Host and players need the mod."));
-            FixQuickdraw = new ModSetting(Config.Bind("Fixes", "Quickdraw", true,
-                "Make quickdraws (shooting the moment you pick up a gun) work the same at any FPS as at 60 FPS (vanilla: the glitch ends almost immediately at high FPS)."));
-            FixThrowBlock = new ModSetting(Config.Bind("Fixes", "ThrowBlock", true,
-                "Online, the target's own game decides whether a thrown weapon hit them, so a throw you stop by shooting it can't kill you on the thrower's screen (vanilla: you 'die to nothing'). Both players need it on."));
-            FixGroundWeapons = new ModSetting(Config.Bind("Fixes", "PlacedGuns", true,
-                "Online, make guns placed on the map (Lava 3/5/6/7, Laser 7/8/9, Western 3/5/6/9/10, Winter 15, Halloween 2/5/7/8/9/10/11, Xmas 12) work for a player whose map finished loading after the host's."));
-            FixHostPickup = new ModSetting(Config.Bind("Fixes", "HostSidePickup", true,
-                "Online (host), also give a gun to another player when their body touches the host's copy of it, so non-hosts can pick up the minigun, flamethrower and RPG (vanilla: their copy slides away and they can barely grab them)."));
-            FixLobbyWin = new ModSetting(Config.Bind("Fixes", "NoLobbyWin", true,
-                "Don't count the lobby round (first kill in the menu lobby) as a win (vanilla: the survivor starts the match one win up)."));
-            FixJoinTimeout = new ModSetting(Config.Bind("Fixes", "JoinTimeout", true,
-                "When joining a lobby, wait up to 30 s for the host to accept instead of 5 s (vanilla: often fails with the 'check firewall' error unless you pause while joining)."));
-            FixRemoteMovement = new ModSetting(Config.Bind("Fixes", "RemoteMovement", true,
-                "Apply other online players' movement/jumps once per physics step instead of once per frame (vanilla: their wall jumps kick harder on your screen the higher your FPS)."));
-            FixedStepMovement = new ModSetting(Config.Bind("Fixes", "FixedStepMovement", true,
-                "Run walking (and the leg animation) on the 60 Hz physics step instead of per frame (vanilla: uneven above 60 FPS, sluggish below it)."));
-            FixedStepTurning = new ModSetting(Config.Bind("Fixes", "FixedStepTurning", true,
-                "Run body turning on the 60 Hz physics step instead of per frame."));
-            FixedStepBalance = new ModSetting(Config.Bind("Fixes", "FixedStepBalance", true,
-                "Run leg balancing on the 60 Hz physics step instead of per frame."));
-            FixedStepWeaponHold = new ModSetting(Config.Bind("Fixes", "FixedStepWeaponHold", true,
-                "Run weapon holding and the hand pull while blocking/grabbing on the 60 Hz physics step instead of per frame (vanilla: wobbly at low FPS)."));
+            masterValue = masterEntry.Value;
+#endif
+            FixNetworkSendRate = Setting("Fixes", "NetworkSendRate", true,
+                "Send your position updates at the intended 50/s regardless of FPS (vanilla: 30/s at 60 FPS, 48/s at 144-240 FPS).");
+            FixFullAutoFireRate = Setting("Fixes", "FullAutoFireRate", true,
+                "Full-auto weapons fire at their real cooldown instead of being rounded up to the next frame (vanilla: slower at lower FPS).");
+            FixThrowAim = Setting("Fixes", "ThrowAim", true,
+                "Throw weapons in the direction you are aiming this frame (vanilla can use last frame's aim; worse at lower FPS).");
+            FixThrowWhiff = Setting("Fixes", "ThrowWhiff", true,
+                "Stop thrown weapons from counting as landed before they've launched (vanilla: above 60 FPS throws often lose their damage and get blocked by your own arm, dropping in front of you).");
+            FixStunCarryOver = Setting("Fixes", "StunCarryOver", true,
+                "Clear the stun from punching into a block when the next map starts (vanilla: it carries over and you can't attack or block at the start of the round).");
+            FixPoseCarryOver = Setting("Fixes", "PoseCarryOver", true,
+                "Start every map standing upright and at rest (vanilla: you keep your pose from the end of the last map, e.g. upside down or legs out, plus any leftover spin).");
+            FixDraws = Setting("Fixes", "Draws", true,
+                "If the last player alive also dies before the next map, it's a draw: nobody gets the win (vanilla: they get 2 wins and the next map breaks).");
+            FixRoundStart = Setting("Fixes", "RoundStart", true,
+                "Online, give control the moment the countdown ends (vanilla: ~2 frames later, so 60 FPS players start ~30 ms after 400 FPS players).");
+            AllowAllMapsOnline = Setting("Fixes", "AllowAllMapsOnline", true,
+                "Let the host pick maps the game only allows offline (Desert 2, 7, 8, Factory 5, Winter 13) when they're on in the map list.");
+            FixSyncedObjects = Setting("Fixes", "SyncedObjects", true,
+                "For non-hosts, stop host-synced map objects (moving platforms, crates) from flying off and vanishing when two updates arrive close together (vanilla: the Factory 1/3/4 platform often disappears).");
+            FixFallingBlocks = Setting("Fixes", "FallingBlocks", true,
+                "Online, when a crumbling block (Castle 6/7) falls on anyone's game, make it fall for everyone (vanilla: each game decides on its own, so the maps desync). Every player needs the mod.");
+            FixShotSync = Setting("Fixes", "ShotSync", true,
+                "Online, send every gun shot reliably so it always shows up on other players' screens, including a gun's last shot (vanilla: grenades and bullets often go missing for the other player but still hit). Both players need it on.");
+            FixSnakeSync = Setting("Fixes", "SnakeSync", true,
+                "Online, keep snakes chasing the same player in the same place on every screen (vanilla: a non-host's snakes never chase on their own screen, extra snakes get deleted for others, and snakes drift apart). Host and players need the mod.");
+            FixQuickdraw = Setting("Fixes", "Quickdraw", true,
+                "Make quickdraws (shooting the moment you pick up a gun) work the same at any FPS as at 60 FPS (vanilla: the glitch ends almost immediately at high FPS).");
+            FixThrowBlock = Setting("Fixes", "ThrowBlock", true,
+                "Online, the target's own game decides whether a thrown weapon hit them, so a throw you stop by shooting it can't kill you on the thrower's screen (vanilla: you 'die to nothing'). Both players need it on.");
+            FixGroundWeapons = Setting("Fixes", "PlacedGuns", true,
+                "Online, make guns placed on the map (Lava 3/5/6/7, Laser 7/8/9, Western 3/5/6/9/10, Winter 15, Halloween 2/5/7/8/9/10/11, Xmas 12) work for a player whose map finished loading after the host's.");
+            FixHostPickup = Setting("Fixes", "HostSidePickup", true,
+                "Online (host), also give a gun to another player when their body touches the host's copy of it, so non-hosts can pick up the minigun, flamethrower and RPG (vanilla: their copy slides away and they can barely grab them).");
+            FixLobbyWin = Setting("Fixes", "NoLobbyWin", true,
+                "Don't count the lobby round (first kill in the menu lobby) as a win (vanilla: the survivor starts the match one win up).");
+            FixJoinTimeout = Setting("Fixes", "JoinTimeout", true,
+                "When joining a lobby, wait up to 30 s for the host to accept instead of 5 s (vanilla: often fails with the 'check firewall' error unless you pause while joining).");
+            FixRemoteMovement = Setting("Fixes", "RemoteMovement", true,
+                "Apply other online players' movement/jumps once per physics step instead of once per frame (vanilla: their wall jumps kick harder on your screen the higher your FPS).");
+            FixedStepMovement = Setting("Fixes", "FixedStepMovement", true,
+                "Run walking (and the leg animation) on the 60 Hz physics step instead of per frame (vanilla: uneven above 60 FPS, sluggish below it).");
+            FixedStepTurning = Setting("Fixes", "FixedStepTurning", true,
+                "Run body turning on the 60 Hz physics step instead of per frame.");
+            FixedStepBalance = Setting("Fixes", "FixedStepBalance", true,
+                "Run leg balancing on the 60 Hz physics step instead of per frame.");
+            FixedStepWeaponHold = Setting("Fixes", "FixedStepWeaponHold", true,
+                "Run weapon holding and the hand pull while blocking/grabbing on the 60 Hz physics step instead of per frame (vanilla: wobbly at low FPS).");
 
-            LockGameSettings = new ModSetting(Config.Bind("Lock", "GameSettings", true,
-                "Lock the game settings (HP, regen, weapon spawns, maps option, bots, ping display, win display) to the competitive ruleset. Auto pickup and chat are never locked."));
-            LockMaps = new ModSetting(Config.Bind("Lock", "Maps", true,
-                "Lock the map selection to the competitive map list."));
-            LockWeapons = new ModSetting(Config.Bind("Lock", "Weapons", true,
-                "Lock the weapon selection to the competitive weapon list."));
+            LockGameSettings = Setting("Lock", "GameSettings", true,
+                "Lock the game settings (HP, regen, weapon spawns, maps option, bots, ping display, win display) to the competitive ruleset. Auto pickup and chat are never locked.");
+            LockMaps = Setting("Lock", "Maps", true,
+                "Lock the map selection to the competitive map list.");
+            LockWeapons = Setting("Lock", "Weapons", true,
+                "Lock the weapon selection to the competitive weapon list.");
 
-            PickupLog = Config.Bind("Debug", "PickupLog", false,
+#if !LOCKED
+            pickupLogEntry = Config.Bind("Debug", "PickupLog", false,
                 "Log online weapon pickups (touches, requests, host answers) to LogOutput.log, to diagnose pickup problems.");
+#endif
 
             SettingsLock.ApplyAll();
             new Harmony(Guid).PatchAll(typeof(Plugin).Assembly);
-            Log.LogInfo($"{Name} {Version} loaded (Enabled={MasterEnabled.Value}, PickupLog={PickupLog.Value}, LockGameSettings={LockGameSettings.Value}, LockMaps={LockMaps.Value}, LockWeapons={LockWeapons.Value}, NetworkSendRate={FixNetworkSendRate.Value}, FullAutoFireRate={FixFullAutoFireRate.Value}, ThrowAim={FixThrowAim.Value}, ThrowWhiff={FixThrowWhiff.Value}, StunCarryOver={FixStunCarryOver.Value}, PoseCarryOver={FixPoseCarryOver.Value}, Draws={FixDraws.Value}, RoundStart={FixRoundStart.Value}, AllowAllMapsOnline={AllowAllMapsOnline.Value}, SyncedObjects={FixSyncedObjects.Value}, FallingBlocks={FixFallingBlocks.Value}, ShotSync={FixShotSync.Value}, SnakeSync={FixSnakeSync.Value}, Quickdraw={FixQuickdraw.Value}, ThrowBlock={FixThrowBlock.Value}, PlacedGuns={FixGroundWeapons.Value}, HostSidePickup={FixHostPickup.Value}, NoLobbyWin={FixLobbyWin.Value}, JoinTimeout={FixJoinTimeout.Value}, RemoteMovement={FixRemoteMovement.Value}, FixedStepMovement={FixedStepMovement.Value}, FixedStepTurning={FixedStepTurning.Value}, FixedStepBalance={FixedStepBalance.Value}, FixedStepWeaponHold={FixedStepWeaponHold.Value})");
+            Log.LogInfo($"{Name} {Version} loaded ({(Locked ? "locked build, " : string.Empty)}Enabled={MasterEnabled}, PickupLog={PickupLogEnabled}, LockGameSettings={LockGameSettings.Value}, LockMaps={LockMaps.Value}, LockWeapons={LockWeapons.Value}, NetworkSendRate={FixNetworkSendRate.Value}, FullAutoFireRate={FixFullAutoFireRate.Value}, ThrowAim={FixThrowAim.Value}, ThrowWhiff={FixThrowWhiff.Value}, StunCarryOver={FixStunCarryOver.Value}, PoseCarryOver={FixPoseCarryOver.Value}, Draws={FixDraws.Value}, RoundStart={FixRoundStart.Value}, AllowAllMapsOnline={AllowAllMapsOnline.Value}, SyncedObjects={FixSyncedObjects.Value}, FallingBlocks={FixFallingBlocks.Value}, ShotSync={FixShotSync.Value}, SnakeSync={FixSnakeSync.Value}, Quickdraw={FixQuickdraw.Value}, ThrowBlock={FixThrowBlock.Value}, PlacedGuns={FixGroundWeapons.Value}, HostSidePickup={FixHostPickup.Value}, NoLobbyWin={FixLobbyWin.Value}, JoinTimeout={FixJoinTimeout.Value}, RemoteMovement={FixRemoteMovement.Value}, FixedStepMovement={FixedStepMovement.Value}, FixedStepTurning={FixedStepTurning.Value}, FixedStepBalance={FixedStepBalance.Value}, FixedStepWeaponHold={FixedStepWeaponHold.Value})");
         }
 
         private void Update()
@@ -129,13 +179,19 @@ namespace CompetitiveMod
     internal sealed class ModSetting
     {
         private readonly ConfigEntry<bool> entry;
+        private readonly bool fixedValue;
 
         internal ModSetting(ConfigEntry<bool> entry)
         {
             this.entry = entry;
         }
 
-        public bool Value => CompSwitch.Active && entry.Value;
+        internal ModSetting(bool fixedValue)
+        {
+            this.fixedValue = fixedValue;
+        }
+
+        public bool Value => CompSwitch.Active && (entry != null ? entry.Value : fixedValue);
     }
 
     // Vanilla TickSyncPos resets the send timer to 0 after each send, discarding the overshoot,

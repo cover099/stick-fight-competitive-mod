@@ -16,7 +16,7 @@ namespace CompetitiveMod
         private static readonly AccessTools.FieldRef<MultiplayerManager, System.Collections.Generic.Dictionary<ushort, WeaponPickUp>> SpawnedWeapons =
             AccessTools.FieldRefAccess<MultiplayerManager, System.Collections.Generic.Dictionary<ushort, WeaponPickUp>>("mSpawnedWeapons");
 
-        private static bool Active => Plugin.PickupLog.Value && MatchmakingHandler.IsNetworkMatch;
+        private static bool Active => Plugin.PickupLogEnabled && MatchmakingHandler.IsNetworkMatch;
 
         private static string Role => MultiplayerManager.IsServer ? "host" : "client";
 

@@ -5,7 +5,8 @@ using UnityEngine;
 
 namespace CompetitiveMod
 {
-    // Master on/off switch for the whole mod ([General] Enabled, off by default, saved in the config).
+    // Master on/off switch for the whole mod (off by default, saved: [General] Enabled in the config,
+    // or the game's preferences in the locked build).
     // Changed with the COMP MOD lever on the first screen or the /comp chat command. Online the
     // host's setting applies to everyone (the sync fixes need both players to agree), so only the
     // host can change it there, and only in the lobby, not mid-match.
@@ -22,7 +23,7 @@ namespace CompetitiveMod
         private static float lastBroadcast = -999f;
 
         // Cached once per frame: patches read this constantly.
-        internal static bool Active => initialized ? active : Plugin.MasterEnabled != null && Plugin.MasterEnabled.Value;
+        internal static bool Active => initialized ? active : Plugin.MasterEnabled;
 
         internal static bool OnlineClient => MatchmakingHandler.IsNetworkMatch && !MultiplayerManager.IsServer;
 
@@ -38,7 +39,7 @@ namespace CompetitiveMod
             {
                 Poll();
             }
-            bool now = network && !server && hostKnown ? hostState : Plugin.MasterEnabled.Value;
+            bool now = network && !server && hostKnown ? hostState : Plugin.MasterEnabled;
             if (server && (now != active || Time.realtimeSinceStartup - lastBroadcast > BroadcastInterval))
             {
                 Broadcast(now);
@@ -70,7 +71,7 @@ namespace CompetitiveMod
             {
                 return "Comp mod: can only be changed in the lobby";
             }
-            Plugin.MasterEnabled.Value = on; // saved to the config file right away
+            Plugin.MasterEnabled = on; // saved right away
             return "Comp mod " + (on ? "ON" : "OFF");
         }
 

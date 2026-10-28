@@ -8,17 +8,15 @@ The mod starts **switched off**. Turn it on with any of these:
 
 - the **COMP MOD** lever on the first screen ("PRESS EVERY BUTTON TO JOIN"): knock it to the ON side.
 - the chat command `/comp` (toggle), `/comp on` or `/comp off`.
-- `Enabled = true` under `[General]` in `BepInEx/config/competitivemod.stickfight.cfg`.
-
 The setting is saved. Online, the **host's** setting applies to everyone in the lobby and can only be changed in the lobby, not mid-match.
 
 **Both players need the mod.** Many fixes change how the two games talk to each other, so a player without it will see things go wrong.
 
 ## Fixes
 
-Each fix can be turned off separately in the config file (they only apply while the mod is on).
+The release build has no config file: everything below is always on while the mod is on, so every player gets the same game. (Building from source without `-p:Locked=true` gives a config file where each one can be switched off, for testing.)
 
-| Setting | Default | What it does |
+| Fix | Default | What it does |
 |---|---|---|
 | `NetworkSendRate` | on | Send your position updates at the intended 50/s regardless of FPS (vanilla: 30/s at 60 FPS, 48/s at 144-240 FPS). |
 | `FullAutoFireRate` | on | Full-auto weapons fire at their real cooldown instead of being rounded up to the next frame (vanilla: slower at lower FPS). |
@@ -47,9 +45,9 @@ Each fix can be turned off separately in the config file (they only apply while 
 
 ## Competitive ruleset (locks)
 
-While the mod is on, these lock the in-game settings to the ruleset in `Rules.cs` and show lock icons in the menus. Auto pickup and chat are never locked. Turning a lock off doesn't restore your previous settings.
+While the mod is on, the in-game settings, map list and weapon list are locked to the ruleset in `Rules.cs`, with lock icons in the menus. Auto pickup and chat are never locked. Switching the mod off doesn't restore your previous settings.
 
-| Setting | Default | What it does |
+| Lock | Default | What it does |
 |---|---|---|
 | `GameSettings` | on | Lock the game settings (HP, regen, weapon spawns, maps option, bots, ping display, win display) to the competitive ruleset. Auto pickup and chat are never locked. |
 | `Maps` | on | Lock the map selection to the competitive map list. |
@@ -76,7 +74,8 @@ On Linux, set the game's Steam launch options to `WINEDLLOVERRIDES="winhttp=n,b"
 Requires the .NET SDK and a copy of the game with BepInEx installed. The project compiles against the game's own assemblies (`StickFight_Data/Managed`) and BepInEx's `core` folder; none of them are included here.
 
 ```sh
-dotnet build -c Release -p:GameDir=/path/to/StickFightTheGame/
+dotnet build -c Release -p:GameDir=/path/to/StickFightTheGame/                  # configurable (testing)
+dotnet build -c Release -p:GameDir=/path/to/StickFightTheGame/ -p:Locked=true   # locked, as released
 ```
 
 By default `GameDir` is `../StickFightTheGame/` next to this folder. The built DLL is copied into that install's `BepInEx/plugins` folder.

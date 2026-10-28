@@ -106,4 +106,3 @@ try {
 Write-Host "`nDone! Start Stick Fight from Steam as usual." -ForegroundColor Green
 Write-Host 'The first start with BepInEx takes a little longer while it sets itself up.'
 Write-Host 'The mod starts switched OFF: flip the COMP MOD lever on the first screen, or type /comp in chat.'
-Write-Host "Settings: $game\BepInEx\config\competitivemod.stickfight.cfg (created after the first start)."

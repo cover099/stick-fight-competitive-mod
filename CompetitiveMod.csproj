@@ -15,6 +15,12 @@
     <Managed>$(GameDir)StickFight_Data/Managed/</Managed>
   </PropertyGroup>
 
+  <!-- Public release: dotnet build -c Release -p:Locked=true. No config file; every fix and lock
+       is always on (whenever the mod is switched on). -->
+  <PropertyGroup Condition="'$(Locked)' == 'true'">
+    <DefineConstants>$(DefineConstants);LOCKED</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <Reference Include="$(Managed)mscorlib.dll" Private="false" />
     <Reference Include="$(Managed)System.dll" Private="false" />
