@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net35</TargetFramework>
+    <AssemblyName>CompetitiveMod</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <!-- Compile against the game's own Mono BCL instead of a downloaded targeting pack -->
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+    <NoStdLib>true</NoStdLib>
+    <NoConfig>true</NoConfig>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- Path to a Stick Fight install with BepInEx 5; override with -p:GameDir=/path/to/StickFightTheGame/ -->
+    <GameDir Condition="'$(GameDir)' == ''">$(MSBuildThisFileDirectory)../StickFightTheGame/</GameDir>
+    <Managed>$(GameDir)StickFight_Data/Managed/</Managed>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="$(Managed)mscorlib.dll" Private="false" />
+    <Reference Include="$(Managed)System.dll" Private="false" />
+    <Reference Include="$(Managed)System.Core.dll" Private="false" />
+    <Reference Include="$(Managed)UnityEngine.dll" Private="false" />
+    <Reference Include="$(Managed)Assembly-CSharp.dll" Private="false" />
+    <Reference Include="$(Managed)Assembly-CSharp-firstpass.dll" Private="false" />
+    <Reference Include="$(Managed)UnityEngine.UI.dll" Private="false" />
+    <Reference Include="$(Managed)TextMeshPro-1.0.55.56.0b9.dll" Private="false" />
+    <Reference Include="$(GameDir)BepInEx/core/BepInEx.dll" Private="false" />
+    <Reference Include="$(GameDir)BepInEx/core/0Harmony.dll" Private="false" />
+  </ItemGroup>
+
+  <Target Name="InstallPlugin" AfterTargets="Build">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(GameDir)BepInEx/plugins/" />
+  </Target>
+
+</Project>
